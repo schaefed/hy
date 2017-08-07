@@ -7,6 +7,7 @@ import ast
 from hy import compiler
 from hy.models import HyExpression, HyList, HySymbol, HyInteger
 from hy._compat import PY3
+from tests.compilers.test_ast import can_compile
 
 
 def test_builds_with_dash():
@@ -85,3 +86,10 @@ def test_compiler_yield_return():
         # In earlier versions, the expression is not returned
         assert isinstance(body[1], ast.Expr)
         assert isinstance(body[1].value, ast.BinOp)
+
+
+def test_compiler_macro_tag_try():
+    """Check that try forms within defmacro/deftag are compiled correctly"""
+
+    can_compile("(defmacro foo [] (try None (except [] None)) `())")
+    can_compile("(deftag foo [] (try None (except [] None)) `())")
