@@ -1405,6 +1405,8 @@ class HyASTCompiler(object):
     @builds("assoc")
     @checkargs(min=3, even=False)
     def compile_assoc_expression(self, expr):
+        # print (type(expr), type(expr[0]), type(expr[1]), type(expr[2]))
+        # print (expr)
         expr.pop(0)  # assoc
         # (assoc foo bar baz)  => foo[bar] = baz
         target = self.compile(expr.pop(0))
@@ -2192,6 +2194,7 @@ class HyASTCompiler(object):
     # produced rather than a Lambda.
     @checkargs(min=1)
     def compile_function_def(self, expression):
+        # print (expression)
         force_functiondef = expression.pop(0) == "fn*"
 
         arglist = expression.pop(0)
@@ -2460,6 +2463,65 @@ class HyASTCompiler(object):
         expr = tag_macroexpand(tag, expression.pop(0), self)
         return self.compile(expr)
 
+
+    @builds("let")
+    def compile_let(self, expression):
+        print ("let: ", expression.pop(0))
+
+        # needs to be assigned to a var
+        cdict = self.compile(HyDict(["continue", False]).replace(expression))
+
+        assign = expression.pop(0)
+        cassign = self._compile_assign(
+            assign[0], assign[1], assign.start_line, assign.start_column)
+
+        
+        
+        func = HyExpression([
+            HyExpression(
+                [HySymbol("fn")]
+                + [HyList()]
+                + expression)
+        ]).replace(expression)
+        cfunc = self.compile(func)
+        # cfunc.stmts[0].body.insert(0, cassign.stmts[0])
+
+        new_body = [cassign.stmts[0]]
+        for i, stmt in enumerate(cfunc.stmts[0].body):
+            # print ("stmt: ", stmt)
+            if not isinstance(stmt, ast.Break):
+                new_body.append(stmt)
+            else:
+                    
+                replace = self.compile_assoc_expression(
+                    HyExpression(
+                        [HySymbol("assoc"),
+                         HySymbol("thingy"),
+                         HySymbol("continue"),
+                         HySymbol("true")]
+                    ).replace(expression)
+                )
+                print ("replace: ", replace, type(replace))
+                # new_body.append(
+                    # self.compile(
+                        # HySymbol("assoc ")
+                    # )
+                # )
+                # del cfunc.stmts[0].body[i]
+                # print ("pop")
+        print ("new_body: ", new_body)
+
+        cfunc.stmts[0].body = new_body
+        
+        ret = (Result()
+               + cdict
+               + cfunc
+        )
+        return ret
+            
+
+ 
+    
     @builds("eval_and_compile")
     def compile_eval_and_compile(self, expression):
         expression[0] = HySymbol("do")

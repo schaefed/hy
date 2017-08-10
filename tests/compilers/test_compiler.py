@@ -90,6 +90,5 @@ def test_compiler_yield_return():
 
 def test_compiler_macro_tag_try():
     """Check that try forms within defmacro/deftag are compiled correctly"""
-
     can_compile("(defmacro foo [] (try None (except [] None)) `())")
     can_compile("(deftag foo [] (try None (except [] None)) `())")
