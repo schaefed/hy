@@ -367,8 +367,8 @@ def is_unpack(kind, x):
             and x[0] == "unpack_" + kind)
 
 
-class HyASTCompiler(object):
 
+class HyASTCompiler(object):
     def __init__(self, module_name):
         self.allow_builtins = module_name.startswith("hy.core")
         self.anon_fn_count = 0
@@ -2423,6 +2423,69 @@ class HyASTCompiler(object):
         ret = self._compile_time_hack(new_expression)
 
         return ret
+
+    @builds("let")
+    def compile_let(self, expression):
+        print ("expression: ", expression)
+        expression.pop(0)
+        assign = expression.pop(0)
+        test = HyExpression([
+            HySymbol("do"),
+            
+            HyExpression([
+                HySymbol("setv"), HySymbol("context"), HyList()
+            ]),
+            HyExpression([
+                HySymbol("defn"), HySymbol("letfunc"), HyList(),
+                HyExpression([
+                    HySymbol("setv"), assign[0], assign[1]
+                ])
+            ])
+        ])
+        for exp in expression:
+            print ("exp: ", exp)
+            if "break" in exp:
+            # print "drin"
+                idx = exp.index("break")
+                print exp[idx], type(exp[idx])
+                # exp[idx] = HyExpression([
+                #     HySymbol(".append"), HySymbol("context"), HyString("break")
+                # ])
+                exp[idx] = HySymbol(".append")
+                exp.insert(idx + 1, HySymbol("context"))
+                exp.insert(idx + 2, HyString("break"))
+            test[-1].append(exp)
+
+        test.append(HyExpression([HySymbol("letfunc")]))
+        test.append(HyExpression([
+            HySymbol("if"),
+            HyExpression([HySymbol("in"), HyString("break"), HySymbol("context")]),
+            HyExpression([HySymbol("break")])
+            # HySymbol("(break"))
+            
+            # HySymbol("print"), HySymbol("context")
+        ]))
+        # print ("test: ", HyExpression(test))
+        # test = HyExpression([test]).replace(expression)
+
+        return Result()
+        print ("test: ", HyExpression(test))
+        ret = self.compile(test.replace(expression))
+        print ("ret: ", ret)
+        return ret
+            
+            # print ("exp: ", exp)
+            # if "break" in exp
+            # print ("-----")
+        
+        # print ("assign: ", assign)
+        return Result()
+        # ret = Result()
+        # ret = ret + HyExpression(
+            
+            
+        # )
+
 
     @builds("deftag")
     @checkargs(min=2)
