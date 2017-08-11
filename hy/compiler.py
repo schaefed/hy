@@ -2434,48 +2434,130 @@ class HyASTCompiler(object):
         assign = expression.pop(0)
         test = HyExpression([
             HySymbol("do"),
-            
             HyExpression([
                 HySymbol("setv"), HySymbol("context"), HyList()
             ]),
             HyExpression([
                 HySymbol("defn"), HySymbol("letfunc"), HyList(),
                 HyExpression([
-                    HySymbol("setv"), assign[0], assign[1]
-                ])
-            ])
-        ])
-        for exp in expression:
-            print ("exp: ", exp)
-            if "break" in exp:
-            # print "drin"
-                idx = exp.index("break")
-                print exp[idx], type(exp[idx])
-                # exp[idx] = HyExpression([
-                #     HySymbol(".append"), HySymbol("context"), HyString("break")
-                # ])
-                exp[idx] = HySymbol(".append")
-                exp.insert(idx + 1, HySymbol("context"))
-                exp.insert(idx + 2, HyString("break"))
-            test[-1].append(exp)
+                    HySymbol("setv"), assign[0], assign[1],
+                ]),
+                *expression,
+            ]),
+            HyExpression([HySymbol("letfunc")]),
+            HyExpression([
+                HySymbol("if"),
+                HyExpression([HySymbol("in"), HyString(""), HySymbol("context")]),
+                HyExpression([HySymbol("pass")])
+            ]).replace(expression)
 
-        test.append(HyExpression([HySymbol("letfunc")]))
-        test.append(HyExpression([
-            HySymbol("if"),
-            HyExpression([HySymbol("in"), HyString("break"), HySymbol("context")]),
-            HyExpression([HySymbol("break")])
-            # HySymbol("(break"))
+        ])
+        last = self.compile(
+            HyExpression([
+                HySymbol("if"),
+                HyExpression([HySymbol("in"), HyString(""), HySymbol("context")]),
+                HyExpression([HySymbol("pass")])
+            ]).replace(expression)
+        )
+        print ("last: ", last)
+ 
+        class FuncLister(ast.NodeTransformer):
+            # def generic_visit(self, node):
+            #     print ("node: ", node, type(node))
+            #     super(FuncLister, self).generic_visit(node)
+            def __init__(self, *args, **kwargs):
+                super(FuncLister, self).__init__()
+                self.outgoing = []
+
+        
+            def visit_Break(self, node):
+                self.outgoing.append(node)
+                new_node = ast.Expr(
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="context", ctx=ast.Load()),
+                            attr="append",
+                            ctx=ast.Load()
+                        ),
+                        args=[ast.Str(s="break")],
+                        kwargs={},
+                        keywords=[],
+                        starargs=[]
+                    )
+                )
+                new_node = ast.copy_location(new_node, node)
+                self.generic_visit(new_node)
+                return new_node
+                # pass
             
-            # HySymbol("print"), HySymbol("context")
-        ]))
+            def visit_Continue(self, node):
+                pass
+            
+            def visit_For(self, node):
+                # nothing interesting to find here
+                pass
+
+            def visit_While(self, node):
+                # nothing interesting to find here
+                pass
+
+            def visit_If(self, node):
+                # print ("HERE: ", node.comparators)
+                import pdb; pdb.set_trace()
+                self.generic_visit(node)
+                return node
+                
+
+        # append = HyExpression([
+            # HySymbol(".append"), HySymbol("context"), HyString("break")
+        # ]).replace(expression)
+        # print (ast.dump(self.compile(append).expr))
+
+        # print ("test: ", test)
+        tree = self.compile(test.replace(expression))
+        walker = FuncLister()
+        walker.visit(tree.stmts[1])
+        # print ("last", last)
+        # for node in walker.outgoing:
+        #     if isinstance(node, ast.Break):
+        #         last.expr.test.left = ast.Str("break")
+        #         last.expr.body = node
+        # print (tree)        
+        # print (tree)
+        return tree
+        # print ("here: ", tree.stmts[1].name)
+        # import pdb; pdb.set_trace()
+        # print ("here: ", )
+
+        # for exp in expression:
+        #     print ("exp: ", exp)
+        #     if "break" in exp:
+        #     # print "drin"
+        #         idx = exp.index("break")
+        #         print exp[idx], type(exp[idx])
+        #         # exp[idx] = HyExpression([
+        #         #     HySymbol(".append"), HySymbol("context"), HyString("break")
+        #         # ])
+        #         exp[idx] = HySymbol(".append")
+        #         exp.insert(idx + 1, HySymbol("context"))
+        #         exp.insert(idx + 2, HyString("break"))
+        #     test[-1].append(exp)
+
+        # test.append(HyExpression([HySymbol("letfunc")]))
+        # test.append(HyExpression([
+        #     HySymbol("if"),
+        #     HyExpression([HySymbol("in"), HyString("break"), HySymbol("context")]),
+        #     HyExpression([HySymbol("break")])
+        # ]))
         # print ("test: ", HyExpression(test))
         # test = HyExpression([test]).replace(expression)
 
-        return Result()
-        print ("test: ", HyExpression(test))
+        # print ("test")
+        # return Result()
+        # print ("test: ", HyExpression(test))
         ret = self.compile(test.replace(expression))
-        print ("ret: ", ret)
-        return ret
+        # print ("ret: ", ret)
+        # return ret
             
             # print ("exp: ", exp)
             # if "break" in exp
@@ -2527,60 +2609,60 @@ class HyASTCompiler(object):
         return self.compile(expr)
 
 
-    @builds("let")
-    def compile_let(self, expression):
-        print ("let: ", expression.pop(0))
+    # @builds("let")
+    # def compile_let(self, expression):
+    #     print ("let: ", expression.pop(0))
 
-        # needs to be assigned to a var
-        cdict = self.compile(HyDict(["continue", False]).replace(expression))
+    #     # needs to be assigned to a var
+    #     cdict = self.compile(HyDict(["continue", False]).replace(expression))
 
-        assign = expression.pop(0)
-        cassign = self._compile_assign(
-            assign[0], assign[1], assign.start_line, assign.start_column)
+    #     assign = expression.pop(0)
+    #     cassign = self._compile_assign(
+    #         assign[0], assign[1], assign.start_line, assign.start_column)
 
         
         
-        func = HyExpression([
-            HyExpression(
-                [HySymbol("fn")]
-                + [HyList()]
-                + expression)
-        ]).replace(expression)
-        cfunc = self.compile(func)
-        # cfunc.stmts[0].body.insert(0, cassign.stmts[0])
+    #     func = HyExpression([
+    #         HyExpression(
+    #             [HySymbol("fn")]
+    #             + [HyList()]
+    #             + expression)
+    #     ]).replace(expression)
+    #     cfunc = self.compile(func)
+    #     # cfunc.stmts[0].body.insert(0, cassign.stmts[0])
 
-        new_body = [cassign.stmts[0]]
-        for i, stmt in enumerate(cfunc.stmts[0].body):
-            # print ("stmt: ", stmt)
-            if not isinstance(stmt, ast.Break):
-                new_body.append(stmt)
-            else:
+    #     new_body = [cassign.stmts[0]]
+    #     for i, stmt in enumerate(cfunc.stmts[0].body):
+    #         # print ("stmt: ", stmt)
+    #         if not isinstance(stmt, ast.Break):
+    #             new_body.append(stmt)
+    #         else:
                     
-                replace = self.compile_assoc_expression(
-                    HyExpression(
-                        [HySymbol("assoc"),
-                         HySymbol("thingy"),
-                         HySymbol("continue"),
-                         HySymbol("true")]
-                    ).replace(expression)
-                )
-                print ("replace: ", replace, type(replace))
-                # new_body.append(
-                    # self.compile(
-                        # HySymbol("assoc ")
-                    # )
-                # )
-                # del cfunc.stmts[0].body[i]
-                # print ("pop")
-        print ("new_body: ", new_body)
+    #             replace = self.compile_assoc_expression(
+    #                 HyExpression(
+    #                     [HySymbol("assoc"),
+    #                      HySymbol("thingy"),
+    #                      HySymbol("continue"),
+    #                      HySymbol("true")]
+    #                 ).replace(expression)
+    #             )
+    #             print ("replace: ", replace, type(replace))
+    #             # new_body.append(
+    #                 # self.compile(
+    #                     # HySymbol("assoc ")
+    #                 # )
+    #             # )
+    #             # del cfunc.stmts[0].body[i]
+    #             # print ("pop")
+    #     print ("new_body: ", new_body)
 
-        cfunc.stmts[0].body = new_body
+    #     cfunc.stmts[0].body = new_body
         
-        ret = (Result()
-               + cdict
-               + cfunc
-        )
-        return ret
+    #     ret = (Result()
+    #            + cdict
+    #            + cfunc
+    #     )
+    #     return ret
             
 
  
